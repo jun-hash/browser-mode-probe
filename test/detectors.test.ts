@@ -37,7 +37,9 @@ test('parseSannysoft reads result classes first, then ok/FAIL/WARN text', () => 
 });
 
 test('toMarkdown counts failures over scored checks and shows errors', () => {
+  const meta = { date: '2026-10-01', os: 'Darwin 25', node: '22.22.3', source: 'chrome' };
   const md = toMarkdown(
+    meta,
     [
       {
         arm: 'fresh-headless',
@@ -55,5 +57,6 @@ test('toMarkdown counts failures over scored checks and shows errors', () => {
     ],
     ['a', 'b'],
   );
-  assert.match(md, /\| `fresh-headless` \| 1 \/ 2: x \| error: boom \|/);
+  assert.match(md, /^2026-10-01 · Darwin 25 · Node 22.22.3 · source: chrome$/m);
+  assert.match(md, /\| `fresh-headless` \| \? \| 1 \/ 2: x \| error: boom \|/);
 });

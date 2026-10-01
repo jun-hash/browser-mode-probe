@@ -5,11 +5,13 @@
     "moduleResolution": "nodenext",
     "strict": true,
     "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
     "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
     "noUncheckedIndexedAccess": true,
-    "types": ["node"]
+    "types": ["node", "chrome"]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "bridge"]
 }

@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "browser-mode-probe bridge",
+  "version": "0.1.0",
+  "description": "Relays CDP from browser-mode-probe to tabs through chrome.debugger.",
+  "permissions": ["debugger", "tabs", "nativeMessaging"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAziHc3B/CAoefj/SlooPy/c6WqImQ517SY3N60FXQlWXvDXK/ppkiWbT0InS9yf/7FvUR5QfKyZvFf2dktieP+W8HnzIQsW8chZrki8ykVoo5+L1tF9zx8GELThj/OfBNBUCs2r5K6wUsbErp9gfStpoNnFPpuO4iUPj3KWD8BGaE+XwK4Orehe75UZV75+zMz1oiQsn2snjSSTFzVOyQrrpaCd2iOV10pBQJ3dko7px/6p6Tu5ZaLvlOEDsBMJEeIkQvqufwYCdLdq/4Z69DyErf4hHta6c2UYTbi7z6/IgA35zGrOWeVLvJReEef8AjFYuehhzaV4jn0V73TojjzwIDAQAB"
+}

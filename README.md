@@ -1,86 +1,103 @@
 # browser-mode-probe
 
-An agent can get a browser in a few ways. It can attach to yours over CDP, go through an
-extension, copy your cookies into a fresh one, or launch a clean one. This tool runs each way
-against the same public bot detectors and reports what they catch.
+How do bot detectors see an agent's browser? This runs seven ways of getting one through the same
+public detectors and compares what each one gives away.
 
-## Result
+## Results
 
-macOS, 2026-10-01. Source browser: Aside (Chromium 153). Launched browser: Google Chrome 154.
-Cells show failed checks out of scored checks.
+2026-10-01 · macOS 26 · your browser: Aside (Chromium 153) · launched browser: Chrome 154
 
-| arm              | rebrowser                 | sannysoft                                  |
-| ---------------- | ------------------------- | ------------------------------------------ |
-| `attach-minimal` | 1 / 6: useragent¹         | 0 / 28                                     |
-| `attach-typical` | 1 / 6: useragent¹         | 0 / 28                                     |
-| `extension`      | 1 / 6: useragent¹         | 0 / 28                                     |
-| `copy`           | 0 / 6                     | 0 / 28                                     |
-| `fresh-headful`  | 0 / 6                     | 0 / 28                                     |
-| `fresh-headless` | 0 / 6                     | 3 / 28: User Agent, HEADCHR_UA, CHR_MEMORY |
-| `fresh-port0`    | 1 / 6: navigatorWebdriver | 4 / 28: adds WebDriver                     |
+Cells are failed checks over scored checks.
 
-¹ Aside reports the brand `Chromium`, not `Google Chrome`. This is a property of the browser, not of
-automation. Attaching to Chrome does not trigger it.
+| Arm              | How the agent gets a browser                         | [rebrowser] | [sannysoft] |
+| ---------------- | ---------------------------------------------------- | ----------- | ----------- |
+| `attach-minimal` | Your browser over CDP                                | 1 / 6 ¹     | 0 / 28      |
+| `attach-typical` | Your browser over CDP, the way most harnesses use it | 1 / 6 ¹     | 0 / 28      |
+| `extension`      | Your browser through an extension                    | 1 / 6 ¹     | 0 / 28      |
+| `copy`           | A new profile with your cookies                      | 0 / 6       | 0 / 28      |
+| `fresh-headful`  | A new profile                                        | 0 / 6       | 0 / 28      |
+| `fresh-headless` | A new profile, headless                              | 0 / 6       | **3 / 28**  |
+| `fresh-port0`    | A new profile, headless, debugging port `0`          | **1 / 6**   | **4 / 28**  |
 
-`copy` moved 3,916 of 3,916 cookies across 1,055 domains.
+¹ Aside reports its brand as `Chromium`, not `Google Chrome`. Any Aside session shows this, with or
+without automation.
+
+[rebrowser]: https://bot-detector.rebrowser.net/
+[sannysoft]: https://bot.sannysoft.com/
 
 ## Findings
 
-1. **Headless gives itself away.** The user agent says `HeadlessChrome`.
-2. **`--remote-debugging-port=0` sets `navigator.webdriver = true`.** A fixed port does not. This
-   held in 8 of 8 launches, headless and headful, on Chrome 154.
-3. **These detectors cannot tell attach, extension, copy, and a clean headful launch apart.**
-   Static checks are not where those modes differ. See below.
-4. **CDP footprint did not matter here.** Enabling `Runtime` and reading from the main world was
-   not detected on Chromium 153.
+1. **Headless announces itself.** Its user agent contains `HeadlessChrome`.
+2. **`--remote-debugging-port=0` sets `navigator.webdriver` to true.** A fixed port does not. This
+   held in 8 of 8 launches of Chrome 154, headless and headful.
+3. **Static detectors cannot separate attach, extension, copy and a clean headful launch.**
+4. **CDP footprint went unseen.** Enabling `Runtime` and reading from the main world was not
+   detected.
+5. **`copy` moved every cookie (3,914 of 3,914), and only cookies.** localStorage, IndexedDB,
+   sessionStorage, passkeys and device-bound cookies stay behind. Sites that keep sign-in state there
+   look signed out.
 
 ## What this does not measure
 
-Static detectors read the browser once. Real bot defenses also weigh:
+These detectors read the browser once. Real bot defenses also weigh:
 
-- **Profile reputation:** cookie age, history, sign-in record.
-- **Network:** IP reputation and TLS fingerprint. All arms here share one home IP.
-- **Behavior:** pointer paths, typing rhythm, timing.
+- **Profile reputation**: cookie age, history, sign-in record.
+- **Network**: IP reputation and TLS fingerprint. Every arm here shares one home IP.
+- **Behavior**: pointer paths, typing rhythm, timing.
 
-`copy` moves cookies only. It does not move localStorage, IndexedDB, sessionStorage, passkeys or
-device-bound cookies. Sites that keep sign-in state there will appear signed out.
+## Reproduce
 
-## Arms
+Needs macOS, Node 22.18+ and Google Chrome. No runtime dependencies.
 
-| arm              | browser                                  | CDP footprint                                      |
-| ---------------- | ---------------------------------------- | -------------------------------------------------- |
-| `attach-minimal` | your running browser                     | no domains enabled, reads from an isolated world   |
-| `attach-typical` | your running browser                     | `Page`, `DOM`, `Runtime`, `Network` on, main world |
-| `extension`      | your running browser, via an extension²  | minimal                                            |
-| `copy`           | fresh profile with your cookies, headful | minimal                                            |
-| `fresh-headful`  | fresh profile, headful                   | minimal                                            |
-| `fresh-headless` | fresh profile, `--headless=new`          | minimal                                            |
-| `fresh-port0`    | as `fresh-headless`, port 0              | minimal                                            |
+1. In your browser, open `chrome://inspect/#remote-debugging` and turn remote debugging on.
+2. Run:
 
-² Needs [extension-cdp-bridge](https://github.com/jun-hash/extension-cdp-bridge) installed.
-It uses `chrome.debugger`, so there is no per-connection approval.
+   ```sh
+   git clone https://github.com/jun-hash/browser-mode-probe && cd browser-mode-probe
+   npm run probe -- --source chrome
+   ```
 
-## Usage
+3. Click **Allow** once when the browser asks. The run takes about five minutes.
 
-Requires Node 22.18+ and a Chromium browser with remote debugging turned on
-(`chrome://inspect/#remote-debugging`).
+Results go to `results/<time>/`: `summary.md`, `results.json` and one screenshot per page. Pass
+`--arms copy,fresh-headless` to run some arms, or `--source aside` to use Aside. See `--help`.
+
+### Extension arm
+
+The `extension` arm needs the extension in `bridge/`. Set it up once:
 
 ```sh
-git clone https://github.com/jun-hash/browser-mode-probe && cd browser-mode-probe
-node src/cli.ts --source chrome          # or --source aside, or --source ws://...
-node src/cli.ts --arms copy,fresh-headless
+npm run bridge:install
 ```
 
-The browser asks you to approve the connection once per run. Output goes to `results/<time>/`:
-`summary.md`, `results.json` and screenshots.
+Then open `chrome://extensions`, turn on Developer mode, choose **Load unpacked** and select
+`bridge/extension`. After that, the arm connects without a prompt.
 
-Add a detector by appending to `DETECTORS` in `src/detectors.ts`. Add an arm in `src/modes.ts`.
+```
+probe ──▶ Unix socket ──▶ native host ──▶ extension ──▶ chrome.debugger ──▶ tab
+```
+
+Remove it with `npm run bridge:uninstall` and by removing the extension.
+
+## Extend
+
+- **Detector**: add an entry to `DETECTORS` in `src/detectors.ts`: a URL, a page script that
+  returns data, and a parser that turns it into pass or fail checks.
+- **Arm**: add an entry to `ARMS` in `src/modes.ts`.
+
+| Path               | What it does                                           |
+| ------------------ | ------------------------------------------------------ |
+| `src/cli.ts`       | Runs arms, writes results                              |
+| `src/modes.ts`     | Arms, and how each one opens a browser                 |
+| `src/visit.ts`     | Opens a page in a background tab, reads it, closes it  |
+| `src/detectors.ts` | Detector pages and their parsers                       |
+| `bridge/`          | The extension, its native host, and the install script |
 
 ## Privacy
 
-Cookies stay in memory and in a temporary profile that is deleted when the arm ends, including on
-Ctrl-C. Results record cookie counts only, never names or values. Attach arms open and close their
-own background tabs. They do not touch yours.
+Attach and extension arms open and close their own background tabs and never touch yours. Copied
+cookies stay in memory and in a temporary profile that is deleted when the arm ends, including on
+Ctrl-C. Results record cookie counts, never names or values.
 
 ## Development
 

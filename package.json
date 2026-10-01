@@ -1,22 +1,22 @@
 {
   "name": "browser-mode-probe",
   "version": "0.1.0",
-  "description": "Four ways to hand an agent a browser, measured against the same bot detectors.",
+  "description": "How do bot detectors see an agent's browser? Seven ways to get one, side by side.",
   "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22.18"
   },
-  "bin": {
-    "browser-mode-probe": "src/cli.ts"
-  },
   "scripts": {
     "probe": "node src/cli.ts",
+    "bridge:install": "node bridge/install.ts",
+    "bridge:uninstall": "node bridge/install.ts --uninstall",
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc",
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@types/chrome": "^0.3.4",
     "@types/node": "^26.6.3",
     "prettier": "^3.9.9",
     "typescript": "^7.0.2"

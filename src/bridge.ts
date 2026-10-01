@@ -1,10 +1,9 @@
-// Client for extension-cdp-bridge: CDP over a local Unix socket, relayed by a browser extension.
-// https://github.com/jun-hash/extension-cdp-bridge
+// CDP client for the extension bridge in bridge/. Newline-delimited JSON over a Unix socket.
 
 import { connect, type Socket } from 'node:net';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 
+import { LineDecoder } from '../bridge/host/framing.ts';
+import { socketPath } from '../bridge/paths.ts';
 import type { CdpClient } from './cdp.ts';
 
 interface Pending {
@@ -13,30 +12,37 @@ interface Pending {
   timer: ReturnType<typeof setTimeout>;
 }
 
+interface Reply {
+  id?: number;
+  result?: any;
+  error?: { message: string };
+}
+
 export class Bridge implements CdpClient {
   #socket: Socket;
   #nextId = 0;
   #pending = new Map<number, Pending>();
-  #buffer = '';
 
   private constructor(socket: Socket) {
     this.#socket = socket;
-    socket.on('data', (chunk) => this.#onData(chunk.toString()));
+    const decoder = new LineDecoder((message) => this.#onReply(message as Reply));
+    socket.on('data', (chunk) => decoder.push(chunk));
     socket.on('close', () => {
-      for (const p of this.#pending.values()) {
-        clearTimeout(p.timer);
-        p.reject(new Error('Bridge closed'));
+      for (const pending of this.#pending.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error('Bridge closed'));
       }
       this.#pending.clear();
     });
   }
 
   static connect(browser: string): Promise<Bridge> {
-    const path = join(homedir(), '.extension-cdp-bridge', `${browser}.sock`);
     return new Promise((resolve, reject) => {
-      const socket = connect(path);
+      const socket = connect(socketPath(browser));
       socket.once('connect', () => resolve(new Bridge(socket)));
-      socket.once('error', () => reject(new Error(`No extension-cdp-bridge socket at ${path}`)));
+      socket.once('error', () =>
+        reject(new Error(`No bridge for ${browser}. See "Extension arm" in the README.`)),
+      );
     });
   }
 
@@ -62,18 +68,14 @@ export class Bridge implements CdpClient {
     return new Promise((resolve) => this.#socket.end(resolve));
   }
 
-  #onData(text: string): void {
-    const lines = (this.#buffer + text).split('\n');
-    this.#buffer = lines.pop() ?? '';
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      const message = JSON.parse(line);
-      const pending = this.#pending.get(message.id);
-      if (!pending) continue;
-      this.#pending.delete(message.id);
-      clearTimeout(pending.timer);
-      if (message.error) pending.reject(new Error(message.error.message));
-      else pending.resolve(message.result);
-    }
+  #onReply(message: Reply): void {
+    // CDP events carry no id. Arms only wait on replies.
+    if (message.id === undefined) return;
+    const pending = this.#pending.get(message.id);
+    if (!pending) return;
+    this.#pending.delete(message.id);
+    clearTimeout(pending.timer);
+    if (message.error) pending.reject(new Error(message.error.message));
+    else pending.resolve(message.result);
   }
 }
