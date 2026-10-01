@@ -1,6 +1,6 @@
 // Open one page in a background tab, read it, screenshot it, close the tab.
 
-import type { Cdp } from './cdp.ts';
+import type { CdpClient } from './cdp.ts';
 
 /**
  * minimal: no CDP domains enabled; page is read from an isolated world.
@@ -21,7 +21,7 @@ export interface Visit {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function visit(
-  cdp: Cdp,
+  cdp: CdpClient,
   url: string,
   expression: string,
   footprint: Footprint,
@@ -62,7 +62,7 @@ export async function visit(
   }
 }
 
-async function isolatedWorld(cdp: Cdp, sessionId: string): Promise<number> {
+async function isolatedWorld(cdp: CdpClient, sessionId: string): Promise<number> {
   const { frameTree } = await cdp.send('Page.getFrameTree', {}, sessionId);
   const { executionContextId } = await cdp.send(
     'Page.createIsolatedWorld',

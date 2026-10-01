@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     results.push(result);
     let session;
     try {
-      session = await openArm(arm, { source, binary: values.binary });
+      session = await openArm(arm, { source, bridge: values.source, binary: values.binary });
     } catch (error) {
       for (const d of DETECTORS) result.detectors[d.id] = { error: message(error) };
       console.log(`  failed to open: ${message(error)}`);

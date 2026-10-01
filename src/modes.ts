@@ -1,10 +1,11 @@
 // The ways an agent can get a browser, as runnable arms.
 
 import { type DebugPort, launchFresh } from './browsers.ts';
-import { Cdp } from './cdp.ts';
+import { Bridge } from './bridge.ts';
+import { Cdp, type CdpClient } from './cdp.ts';
 import type { Footprint } from './visit.ts';
 
-export type Mode = 'attach' | 'copy' | 'fresh';
+export type Mode = 'attach' | 'extension' | 'copy' | 'fresh';
 
 export interface Arm {
   id: string;
@@ -32,6 +33,14 @@ export const ARMS: Arm[] = [
     headless: false,
     debugPort: 'fixed',
     summary: 'Your running browser over CDP, typical harness footprint',
+  },
+  {
+    id: 'extension',
+    mode: 'extension',
+    footprint: 'minimal',
+    headless: false,
+    debugPort: 'fixed',
+    summary: 'Your running browser through an extension (extension-cdp-bridge)',
   },
   {
     id: 'copy',
@@ -68,7 +77,7 @@ export const ARMS: Arm[] = [
 ];
 
 export interface ArmSession {
-  cdp: Cdp;
+  cdp: CdpClient;
   /** Counts only. Cookie names and values are never recorded. */
   notes: Record<string, number>;
   close(): Promise<void>;
@@ -81,6 +90,8 @@ export interface ArmOptions {
    * approve each new connection, so reconnecting per arm means a dialog per arm.
    */
   source: () => Promise<Cdp>;
+  /** Browser name whose extension-cdp-bridge socket the extension arm uses. */
+  bridge: string;
   /** Binary used for copy and fresh arms. */
   binary: string;
 }
@@ -88,6 +99,10 @@ export interface ArmOptions {
 export async function openArm(arm: Arm, options: ArmOptions): Promise<ArmSession> {
   if (arm.mode === 'attach') {
     return { cdp: await options.source(), notes: {}, close: async () => {} };
+  }
+  if (arm.mode === 'extension') {
+    const cdp = await Bridge.connect(options.bridge);
+    return { cdp, notes: {}, close: () => cdp.close() };
   }
 
   const browser = await launchFresh(options.binary, arm.headless, arm.debugPort);

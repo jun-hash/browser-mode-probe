@@ -1,8 +1,8 @@
 # browser-mode-probe
 
-An agent can get a browser in a few ways. It can attach to yours over CDP, copy your cookies into
-a fresh one, or launch a clean one. This tool runs each way against the same public bot detectors
-and reports what they catch.
+An agent can get a browser in a few ways. It can attach to yours over CDP, go through an
+extension, copy your cookies into a fresh one, or launch a clean one. This tool runs each way
+against the same public bot detectors and reports what they catch.
 
 ## Result
 
@@ -13,6 +13,7 @@ Cells show failed checks out of scored checks.
 | ---------------- | ------------------------- | ------------------------------------------ |
 | `attach-minimal` | 1 / 6: useragent¹         | 0 / 28                                     |
 | `attach-typical` | 1 / 6: useragent¹         | 0 / 28                                     |
+| `extension`      | 1 / 6: useragent¹         | 0 / 28                                     |
 | `copy`           | 0 / 6                     | 0 / 28                                     |
 | `fresh-headful`  | 0 / 6                     | 0 / 28                                     |
 | `fresh-headless` | 0 / 6                     | 3 / 28: User Agent, HEADCHR_UA, CHR_MEMORY |
@@ -28,8 +29,8 @@ automation. Attaching to Chrome does not trigger it.
 1. **Headless gives itself away.** The user agent says `HeadlessChrome`.
 2. **`--remote-debugging-port=0` sets `navigator.webdriver = true`.** A fixed port does not. This
    held in 8 of 8 launches, headless and headful, on Chrome 154.
-3. **These detectors cannot tell attach, copy, and a clean headful launch apart.** Static checks are
-   not where those modes differ. See below.
+3. **These detectors cannot tell attach, extension, copy, and a clean headful launch apart.**
+   Static checks are not where those modes differ. See below.
 4. **CDP footprint did not matter here.** Enabling `Runtime` and reading from the main world was
    not detected on Chromium 153.
 
@@ -50,10 +51,14 @@ device-bound cookies. Sites that keep sign-in state there will appear signed out
 | ---------------- | ---------------------------------------- | -------------------------------------------------- |
 | `attach-minimal` | your running browser                     | no domains enabled, reads from an isolated world   |
 | `attach-typical` | your running browser                     | `Page`, `DOM`, `Runtime`, `Network` on, main world |
+| `extension`      | your running browser, via an extension²  | minimal                                            |
 | `copy`           | fresh profile with your cookies, headful | minimal                                            |
 | `fresh-headful`  | fresh profile, headful                   | minimal                                            |
 | `fresh-headless` | fresh profile, `--headless=new`          | minimal                                            |
 | `fresh-port0`    | as `fresh-headless`, port 0              | minimal                                            |
+
+² Needs [extension-cdp-bridge](https://github.com/jun-hash/extension-cdp-bridge) installed.
+It uses `chrome.debugger`, so there is no per-connection approval.
 
 ## Usage
 

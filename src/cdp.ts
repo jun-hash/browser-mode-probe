@@ -6,7 +6,18 @@ interface Pending {
   timer: ReturnType<typeof setTimeout>;
 }
 
-export class Cdp {
+/** What arms and visits need from a CDP connection, whatever the transport. */
+export interface CdpClient {
+  send<T = any>(
+    method: string,
+    params?: object,
+    sessionId?: string,
+    timeoutMs?: number,
+  ): Promise<T>;
+  close(): Promise<void>;
+}
+
+export class Cdp implements CdpClient {
   #ws: WebSocket;
   #nextId = 0;
   #pending = new Map<number, Pending>();
